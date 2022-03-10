@@ -29,15 +29,13 @@ from astropy.coordinates import SkyCoord
 from regions import PixCoord, PolygonSkyRegion, PointSkyRegion, Regions
 from sio_masterfile import *
 
-#initialize field-specific information - later this will be the basis for a loop
-#fields=['G328.25']
+#initialize field-specific information
 fields=targets.keys()
 
 for field in fields:
     candidates=targets[field]['outflows'].keys()
-    #candidates=['s2']
     for cand in candidates:
-        if field=='W43-MM1':#iff the field is MM1, have to account for the fact that all .crtf entries are in sexagesimal format rather than decimal degrees. Regions.read doesn't handle this correctly - not sure if it's supposed to or not, but it definitely doesn't.
+        if field=='W43-MM1':#iff the field is MM1, have to account for the fact that all .crtf entries are in sexagesimal format rather than decimal degrees. Regions.read doesn't handle this correctly at time of script creation.
             f=open(targets[field]['outflows'][cand]['ap'],'r')
             f.readline()
             line=f.readline()
@@ -65,7 +63,6 @@ for field in fields:
                     #print(y)
             #now take x and y and make a region object with them for the region
             vertices = SkyCoord(x,y,unit='deg',frame='fk5')
-            #region=Regions(PolygonSkyRegion(vertices=vertices))
             centers=[]
             for i in range(0,1):
                 region_sky = PolygonSkyRegion(vertices=vertices)
@@ -91,8 +88,7 @@ for field in fields:
                 if float(ysg[0]) < 0.0:
                     ycoo = -1.0*ycoo
                 y=np.append(y,ycoo)            
-            #now take x and y and make a region object with the for the pathregion
-            #pathregion = [PointSkyRegion(center=SkyCoord(x[i],y[i],unit='deg',frame='fk5') for ra, dec in [x,y]]
+            #now take x and y and make a region object with them for the pathregion
             centers=[]
             for i in range(0,len(x)):
                 center_sky = SkyCoord(x[i],y[i],unit='deg',frame='fk5')
@@ -122,10 +118,9 @@ for field in fields:
             continuum = fits.open(targets[field]['B6'])
     
             #PV Diagram (created separately by /orange/adamginsburg/atowner/ALMA_IMF/sio_outflows/make_pvslices.py)
-            pvplot = fits.open(field+'/'+field+'_'+cand+'_pvslice.fits') #don't construct the slices on the fly - use the separate make_pvslices script to make them so that they exist as their own separate files
+            pvplot = fits.open(field+'/'+field+'_'+cand+'_pvslice.fits') #don't construct the slices on the fly - use a separate script to make them so that they exist as their own separate files
     
-
-            
+    
         coords = WCS(moment0[0].header)
         contcoords = WCS(continuum[0].header)
         pvcoords = WCS(pvplot[0].header)
@@ -186,7 +181,6 @@ for field in fields:
         spectrum = regioncube.sum(axis=(1,2))
         
         #get x-axis in km/s for spectrum plot
-        ##quantity_support()
         restfreq = cube.header['RESTFRQ'] * u.Hz
         refpoint = cube.header['CRPIX3']
         refpointvalue = cube.header['CRVAL3']
@@ -199,18 +193,6 @@ for field in fields:
             spectrum = spectrum[:-1]
         freq_to_vel = u.doppler_radio(restfreq)
         xaxis = xaxis.to(u.km / u.s,equivalencies=freq_to_vel)
-        #
-
-        #make x-axis in km/s starting from km/s (not frequency)
-        #clight = clight.to(u.km/u.s)
-        #cdelt_vel = cube.header['CDELT3']*clight/cube.header['CRVAL3']
-        #cubestart = cube.header['CRPIX3']*u.km/u.s + 2*cdelt_vel
-        #xaxis = np.arange(cubestart.value,cubestart.value+float(len(spectrum))*cdelt_vel.value,cdelt_vel.value) * u.km/u.s
-        #if len(xaxis) > len(spectrum):
-        #    xaxis = xaxis[:-1]
-        #if len(spectrum) > len(xaxis):
-        #    spectrum = spectrum[:-1]
-        #spectrum = spectrum[::-1]
         
         #set mom1 vmin and vmax automatically
         vlsr=targets[field]['vlsr']
@@ -318,6 +300,8 @@ for field in fields:
         m0pvplot.set_xlabel(f"Offset ('')")
         m0pvplot.set_ylabel(f"Velocity Offset ({u.km/u.s})")
         #m0pvplot.set_aspect(len(pvplot[0].data[0])*1.5/len(pvplot[0].data[1]))
+        #### NOTE: I can't get the aspect ratio for the PVplot to be anything except the "natural" ratio determined by the number of pixels and number of channels.
+        #### This sometimes produces very poor aspect ratios for the plots. If you find a way to fix this, please let me know!
         
         m1 = fig.add_subplot(gs[2,0],projection=zoomcoords)
         im = m1.imshow(mom1.data,cmap='seismic',norm=visualization.simple_norm(mom1.data,stretch='linear',min_cut=vmin,max_cut=vmax))
